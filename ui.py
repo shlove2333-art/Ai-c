@@ -80,8 +80,10 @@ def draw_player_panel(surf, player, px, py, pw, ph):
     draw_text(surf, f"덱 {len(player.draw_pile)}장  /  버림 {len(player.discard_pile)}장",
               px+10, py+138, GRAY, 11)
 
-    # 에너지 재생 힌트
-    draw_text(surf, "에너지는 자동 충전됩니다", px+10, py+ph-22, GRAY, 10)
+    # 드로우 타이머 바
+    draw_frac = min(1.0, player._draw_timer / player._draw_total)
+    draw_bar(surf, px+8, py+158, pw-16, 10, draw_frac, TEAL, bg=(20,20,35))
+    draw_text(surf, "카드 드로우 대기", px+pw//2, py+160, GRAY, 10, center=True)
 
 
 def draw_enemy_right(surf, enemy, x, y, selected=False):

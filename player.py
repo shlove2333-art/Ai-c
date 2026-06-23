@@ -18,6 +18,7 @@ class Player:
 
         self._energy_timer = 0.0
         self._draw_timer = 0.0
+        self._draw_total = DRAW_INTERVAL
         self.alive = True
         self.gold = 0
 
@@ -42,7 +43,7 @@ class Player:
 
         if len(self.hand) < MAX_HAND:
             self._draw_timer += dt
-            if self._draw_timer >= DRAW_INTERVAL:
+            if self._draw_timer >= self._draw_total:
                 self._draw_timer = 0.0
                 self.draw_one()
 

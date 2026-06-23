@@ -38,8 +38,8 @@ RARITY_COLOR = {
 }
 
 # Timing
-ENEMY_WARN_SEC   = 2.2   # seconds enemy shows intent before acting
-ENERGY_REGEN_SEC = 1.0   # seconds per 1 energy regen
+ENEMY_WARN_SEC   = 4.5   # 적 공격 예고 시간 (초)
+ENERGY_REGEN_SEC = 1.2   # 에너지 1 충전 간격 (초)
 MAX_ENERGY       = 6
-DRAW_INTERVAL    = 3.0   # auto-draw interval seconds
+DRAW_INTERVAL    = 4.0   # 카드 자동 드로우 간격 (초)
 MAX_HAND         = 5
