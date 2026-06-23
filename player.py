@@ -1,83 +1,107 @@
 import random
-from cards import STARTER_DECK
+from constants import MAX_ENERGY, MAX_HAND, ENERGY_REGEN_SEC, DRAW_INTERVAL
 
 
 class Player:
-    def __init__(self):
+    def __init__(self, starter_classes, name="Hero"):
+        self.name = name
         self.max_hp = 80
         self.hp = 80
-        self.block = 0
         self.strength = 0
-        self.vulnerable = 0
-        self.max_energy = 3
-        self.energy = 3
-        self.gold = 0
+        self.max_energy = MAX_ENERGY
+        self.energy = MAX_ENERGY
+        self.shield = 0          # consumed when hit this turn
+
+        self.deck = [cls() for cls in starter_classes]
+        self.draw_pile: list = []
+        self.hand: list = []
+        self.discard_pile: list = []
+
+        # real-time timers
+        self._energy_timer = 0.0
+        self._draw_timer = 0.0
+
+        # state
+        self.alive = True
         self.floor = 0
+        self.gold = 0
 
-        self.deck = [cls() for cls in STARTER_DECK]
-        self.draw_pile = []
-        self.hand = []
-        self.discard_pile = []
-
+    # ── battle start/end ────────────────────────────────────────
     def start_battle(self):
-        self.block = 0
-        self.strength = 0
-        self.vulnerable = 0
+        self.shield = 0
         self.energy = self.max_energy
         self.draw_pile = self.deck[:]
         random.shuffle(self.draw_pile)
         self.hand = []
         self.discard_pile = []
-        self.draw_cards(5)
+        self._energy_timer = 0.0
+        self._draw_timer = 0.0
+        for _ in range(4):
+            self.draw_one()
 
-    def start_turn(self):
-        self.block = 0
-        self.vulnerable = max(0, self.vulnerable - 1)
-        self.energy = self.max_energy
-        self.discard_pile.extend(self.hand)
-        self.hand = []
-        self.draw_cards(5)
+    def end_battle(self):
+        pass
 
-    def draw_cards(self, count):
-        for _ in range(count):
-            if not self.draw_pile:
-                if not self.discard_pile:
-                    break
-                self.draw_pile = self.discard_pile[:]
-                random.shuffle(self.draw_pile)
-                self.discard_pile = []
-            if self.draw_pile:
-                self.hand.append(self.draw_pile.pop())
+    # ── real-time update ────────────────────────────────────────
+    def update(self, dt: float):
+        # energy regen
+        if self.energy < self.max_energy:
+            self._energy_timer += dt
+            while self._energy_timer >= ENERGY_REGEN_SEC and self.energy < self.max_energy:
+                self.energy += 1
+                self._energy_timer -= ENERGY_REGEN_SEC
 
-    def take_damage(self, amount):
-        if self.vulnerable > 0:
-            amount = int(amount * 1.5)
-        dmg = max(0, amount - self.block)
-        self.block = max(0, self.block - amount)
-        self.hp -= dmg
-        self.hp = max(0, self.hp)
+        # auto-draw
+        if len(self.hand) < MAX_HAND:
+            self._draw_timer += dt
+            if self._draw_timer >= DRAW_INTERVAL:
+                self._draw_timer = 0.0
+                self.draw_one()
 
-    def play_card(self, card_index, target=None):
-        if card_index >= len(self.hand):
+    # ── card actions ────────────────────────────────────────────
+    def draw_one(self):
+        if len(self.hand) >= MAX_HAND:
+            return
+        if not self.draw_pile:
+            if not self.discard_pile:
+                return
+            self.draw_pile = self.discard_pile[:]
+            random.shuffle(self.draw_pile)
+            self.discard_pile = []
+        if self.draw_pile:
+            self.hand.append(self.draw_pile.pop())
+
+    def can_play(self, idx: int) -> bool:
+        if idx < 0 or idx >= len(self.hand):
             return False
-        card = self.hand[card_index]
-        if self.energy < card.cost:
+        return self.energy >= self.hand[idx].cost
+
+    def play_card(self, idx: int, battle, target_idx=0) -> bool:
+        if not self.can_play(idx):
             return False
+        card = self.hand.pop(idx)
         self.energy -= card.cost
-        card.use(self, target)
-        self.hand.pop(card_index)
+        card.use(self, battle, target_idx)
         self.discard_pile.append(card)
         return True
 
-    def end_turn(self):
-        self.discard_pile.extend(self.hand)
-        self.hand = []
+    # ── hp ──────────────────────────────────────────────────────
+    def take_damage(self, amount: int):
+        absorbed = min(self.shield, amount)
+        self.shield -= absorbed
+        net = amount - absorbed
+        self.hp = max(0, self.hp - net)
+        if self.hp == 0:
+            self.alive = False
 
-    def is_alive(self):
-        return self.hp > 0
+    def heal(self, amount: int):
+        self.hp = min(self.max_hp, self.hp + amount)
 
-    def add_card_to_deck(self, card):
+    def add_card(self, card):
         self.deck.append(card)
 
-    def heal(self, amount):
-        self.hp = min(self.max_hp, self.hp + amount)
+    # ── energy bar fraction ──────────────────────────────────────
+    def energy_frac(self) -> float:
+        if self.energy >= self.max_energy:
+            return 1.0
+        return (self.energy + self._energy_timer / ENERGY_REGEN_SEC) / self.max_energy

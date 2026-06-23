@@ -1,4 +1,5 @@
 import random
+from constants import ENEMY_WARN_SEC
 
 
 class Enemy:
@@ -6,201 +7,203 @@ class Enemy:
         self.name = name
         self.max_hp = hp
         self.hp = hp
-        self.block = 0
         self.strength = strength
-        self.vulnerable = 0
-        self.intent = None
+        self.burn = 0         # damage per action
+        self.alive = True
+
+        self.intent = None    # "attack" / "buff" / "heal"
         self.intent_value = 0
+        self.warn_timer = 0.0
+        self.warn_total = ENEMY_WARN_SEC
+        self._action_cd = 0.0  # cooldown between actions
+
+        self._decide()
+
+    # ── state ───────────────────────────────────────────────────
+    def is_alive(self):
+        return self.hp > 0 and self.alive
 
     def take_damage(self, amount):
-        if self.vulnerable > 0:
-            amount = int(amount * 1.5)
-        dmg = max(0, amount - self.block)
-        self.block = max(0, self.block - amount)
-        self.hp -= dmg
-        self.hp = max(0, self.hp)
+        self.hp = max(0, self.hp - amount)
+        if self.hp == 0:
+            self.alive = False
 
-    def is_alive(self):
-        return self.hp > 0
+    # ── real-time update ────────────────────────────────────────
+    def update(self, dt, players):
+        if not self.is_alive():
+            return
 
-    def decide_intent(self):
-        pass
+        self.warn_timer += dt
+        if self.warn_timer >= self.warn_total:
+            self._execute(players)
+            self._decide()
+            self.warn_timer = 0.0
 
-    def execute_intent(self, player):
-        pass
+    # ── intent ──────────────────────────────────────────────────
+    def _decide(self):
+        pass  # subclass
 
-    def start_turn(self):
-        self.block = 0
-        self.vulnerable = max(0, self.vulnerable - 1)
-        self.decide_intent()
+    def _execute(self, players):
+        # burn tick
+        if self.burn > 0:
+            self.take_damage(self.burn)
+            self.burn = max(0, self.burn - 1)
 
-    def get_intent_text(self):
+    def warn_frac(self):
+        return min(1.0, self.warn_timer / self.warn_total)
+
+    def intent_label(self):
         if self.intent == "attack":
-            return f"Attack {self.intent_value}"
-        elif self.intent == "defend":
-            return f"Defend {self.intent_value}"
-        elif self.intent == "buff":
-            return "Buff"
-        return "???"
+            return f"⚔ Attack {self.intent_value}"
+        if self.intent == "buff":
+            return "↑ Buff"
+        if self.intent == "heal":
+            return f"♥ Heal {self.intent_value}"
+        return "?"
 
 
+# ── Concrete enemies ─────────────────────────────────────────
 class Slime(Enemy):
     def __init__(self):
-        super().__init__("Slime", random.randint(14, 18))
-        self.decide_intent()
-
-    def decide_intent(self):
+        super().__init__("Slime", random.randint(18, 26))
+    def _decide(self):
         self.intent = "attack"
-        self.intent_value = random.randint(5, 8)
-
-    def execute_intent(self, player):
-        if self.intent == "attack":
-            player.take_damage(self.intent_value + self.strength)
+        self.intent_value = random.randint(6, 10)
+        self.warn_total = random.uniform(1.8, 2.6)
+    def _execute(self, players):
+        super()._execute(players)
+        if self.is_alive():
+            target = random.choice([p for p in players if p.alive])
+            target.take_damage(self.intent_value + self.strength)
 
 
 class Cultist(Enemy):
     def __init__(self):
-        super().__init__("Cultist", random.randint(48, 54))
-        self.turn = 0
-        self.decide_intent()
-
-    def decide_intent(self):
-        if self.turn == 0:
+        super().__init__("Cultist", random.randint(50, 60))
+        self._turn = 0
+    def _decide(self):
+        if self._turn == 0:
             self.intent = "buff"
+            self.intent_value = 3
+            self.warn_total = 2.0
         else:
             self.intent = "attack"
-            self.intent_value = 6 + self.strength
-
-    def execute_intent(self, player):
+            self.intent_value = 8 + self.strength
+            self.warn_total = random.uniform(1.6, 2.2)
+    def _execute(self, players):
+        super()._execute(players)
+        if not self.is_alive():
+            return
         if self.intent == "buff":
             self.strength += 3
-        elif self.intent == "attack":
-            player.take_damage(self.intent_value)
-        self.turn += 1
-        self.decide_intent()
+        else:
+            alive = [p for p in players if p.alive]
+            if alive:
+                random.choice(alive).take_damage(self.intent_value)
+        self._turn += 1
 
 
 class Goblin(Enemy):
     def __init__(self):
-        super().__init__("Goblin", random.randint(10, 15), strength=1)
-        self.decide_intent()
-
-    def decide_intent(self):
-        r = random.random()
-        if r < 0.6:
+        super().__init__("Goblin", random.randint(14, 20), strength=1)
+    def _decide(self):
+        if random.random() < 0.7:
             self.intent = "attack"
-            self.intent_value = random.randint(4, 7)
+            self.intent_value = random.randint(5, 9)
+            self.warn_total = random.uniform(1.2, 2.0)
         else:
-            self.intent = "defend"
-            self.intent_value = random.randint(4, 6)
-
-    def execute_intent(self, player):
+            self.intent = "heal"
+            self.intent_value = 6
+            self.warn_total = 2.5
+    def _execute(self, players):
+        super()._execute(players)
+        if not self.is_alive():
+            return
         if self.intent == "attack":
-            player.take_damage(self.intent_value + self.strength)
-        elif self.intent == "defend":
-            self.block += self.intent_value
-
-
-class JawWorm(Enemy):
-    def __init__(self):
-        super().__init__("Jaw Worm", random.randint(40, 44))
-        self.decide_intent()
-
-    def decide_intent(self):
-        r = random.random()
-        if r < 0.45:
-            self.intent = "attack"
-            self.intent_value = random.randint(11, 14)
-        elif r < 0.75:
-            self.intent = "defend"
-            self.intent_value = random.randint(6, 9)
+            alive = [p for p in players if p.alive]
+            if alive:
+                random.choice(alive).take_damage(self.intent_value + self.strength)
         else:
-            self.intent = "attack"
-            self.intent_value = 7
-
-    def execute_intent(self, player):
-        if self.intent == "attack":
-            player.take_damage(self.intent_value + self.strength)
-        elif self.intent == "defend":
-            self.block += self.intent_value
+            self.hp = min(self.max_hp, self.hp + self.intent_value)
 
 
-class Louse(Enemy):
+class OrcWarrior(Enemy):
     def __init__(self):
-        super().__init__("Louse", random.randint(10, 15))
-        self.decide_intent()
-
-    def decide_intent(self):
+        super().__init__("Orc", random.randint(55, 70), strength=2)
+    def _decide(self):
         self.intent = "attack"
-        self.intent_value = random.randint(5, 7)
+        self.intent_value = random.randint(12, 18)
+        self.warn_total = random.uniform(2.0, 3.0)
+    def _execute(self, players):
+        super()._execute(players)
+        if self.is_alive():
+            alive = [p for p in players if p.alive]
+            if alive:
+                random.choice(alive).take_damage(self.intent_value + self.strength)
 
-    def execute_intent(self, player):
-        player.take_damage(self.intent_value)
-        if random.random() < 0.25:
-            player.vulnerable += 1
 
-
-# Boss enemies
+# ── Bosses ───────────────────────────────────────────────────
 class SlimeBoss(Enemy):
     def __init__(self):
-        super().__init__("Slime Boss", 140)
-        self.pattern = ["defend", "attack", "attack", "buff"]
-        self.idx = 0
-        self.decide_intent()
-
-    def decide_intent(self):
-        action = self.pattern[self.idx % len(self.pattern)]
-        self.intent = action
-        if action == "attack":
-            self.intent_value = 16
-        elif action == "defend":
-            self.intent_value = 12
-        elif action == "buff":
-            self.intent_value = 0
-
-    def execute_intent(self, player):
+        super().__init__("Slime King", 180, strength=2)
+        self._phase = 0
+    def _decide(self):
+        pattern = ["attack", "attack", "buff", "attack"]
+        self.intent = pattern[self._phase % len(pattern)]
         if self.intent == "attack":
-            player.take_damage(self.intent_value + self.strength)
-        elif self.intent == "defend":
-            self.block += self.intent_value
-        elif self.intent == "buff":
-            self.strength += 2
-        self.idx += 1
-        self.decide_intent()
+            self.intent_value = 18 + self.strength
+            self.warn_total = random.uniform(1.8, 2.4)
+        else:
+            self.intent_value = 0
+            self.warn_total = 2.2
+    def _execute(self, players):
+        super()._execute(players)
+        if not self.is_alive():
+            return
+        if self.intent == "attack":
+            for p in [p for p in players if p.alive]:
+                p.take_damage(self.intent_value)
+        else:
+            self.strength += 3
+        self._phase += 1
 
 
-class HexaGhost(Enemy):
+class DragonLord(Enemy):
     def __init__(self):
-        super().__init__("Hexa Ghost", 250, strength=2)
-        self.decide_intent()
+        super().__init__("Dragon Lord", 280, strength=4)
+        self._phase = 0
+    def _decide(self):
+        pattern = ["attack", "attack", "buff", "attack", "heal"]
+        self.intent = pattern[self._phase % len(pattern)]
+        if self.intent == "attack":
+            self.intent_value = 22 + self.strength
+            self.warn_total = random.uniform(1.5, 2.2)
+        elif self.intent == "heal":
+            self.intent_value = 30
+            self.warn_total = 3.0
+        else:
+            self.intent_value = 0
+            self.warn_total = 2.0
+    def _execute(self, players):
+        super()._execute(players)
+        if not self.is_alive():
+            return
+        if self.intent == "attack":
+            for p in [p for p in players if p.alive]:
+                p.take_damage(self.intent_value)
+        elif self.intent == "heal":
+            self.hp = min(self.max_hp, self.hp + self.intent_value)
+        else:
+            self.strength += 4
+        self._phase += 1
 
-    def decide_intent(self):
-        self.intent = "attack"
-        self.intent_value = random.randint(6, 10)
 
-    def execute_intent(self, player):
-        hits = random.randint(2, 4)
-        for _ in range(hits):
-            player.take_damage(self.intent_value + self.strength)
-        self.decide_intent()
+NORMAL_POOL = [Slime, Cultist, Goblin, OrcWarrior]
+BOSS_POOL   = [SlimeBoss, DragonLord]
 
 
-NORMAL_ENEMIES = [Slime, Cultist, Goblin, JawWorm, Louse]
-BOSS_ENEMIES = [SlimeBoss, HexaGhost]
-
-
-def get_random_enemy(floor):
-    if floor % 5 == 0:
-        return random.choice(BOSS_ENEMIES)()
-    count = random.randint(1, 2)
-    if count == 1:
-        return random.choice(NORMAL_ENEMIES)()
-    e1 = random.choice(NORMAL_ENEMIES)()
-    return e1  # single enemy for simplicity
-
-
-def get_enemy_group(floor):
+def make_enemy_group(floor: int):
     if floor > 0 and floor % 5 == 0:
-        return [random.choice(BOSS_ENEMIES)()]
-    count = random.randint(1, 3)
-    return [random.choice(NORMAL_ENEMIES)() for _ in range(count)]
+        return [random.choice(BOSS_POOL)()]
+    count = 1 if floor < 3 else random.randint(1, 2)
+    return [random.choice(NORMAL_POOL)() for _ in range(count)]

@@ -1,28 +1,28 @@
 import pygame
 import sys
-from player import Player
-from game import Game, W, H
+from game import GameApp
+from constants import W, H
 
 
 def main():
     pygame.init()
     screen = pygame.display.set_mode((W, H))
-    pygame.display.set_caption("Card Dungeon")
+    pygame.display.set_caption("Forge & Guard")
     clock = pygame.time.Clock()
 
-    player = Player()
-    game = Game(screen, player)
+    app = GameApp(screen)
 
     while True:
+        dt = clock.tick(60) / 1000.0
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            game.handle_event(event)
+            app.handle_event(event)
 
-        game.draw()
+        app.update(dt)
+        app.draw()
         pygame.display.flip()
-        clock.tick(60)
 
 
 if __name__ == "__main__":

@@ -1,62 +1,98 @@
-from enemy import get_enemy_group
+from enemy import make_enemy_group
 
 
-class BattleState:
-    PLAYER_TURN = "player_turn"
-    ENEMY_TURN = "enemy_turn"
-    VICTORY = "victory"
-    DEFEAT = "defeat"
+class Battle:
+    def __init__(self, players, floor):
+        self.players = players
+        self.enemies = make_enemy_group(floor)
+        self.floor = floor
+        self.over = False
+        self.victory = False
+        self.fuse_mode = False        # crafting UI active
+        self.fuse_slot = [None, None] # (player_idx, card_idx) x2
 
-    def __init__(self, player, floor):
-        self.player = player
-        self.enemies = get_enemy_group(floor)
-        self.turn = self.PLAYER_TURN
-        self.turn_number = 1
-        self.log = []
-        self.selected_card = None
+        for p in players:
+            p.start_battle()
+
+    # ── update ───────────────────────────────────────────────
+    def update(self, dt):
+        if self.over:
+            return
+
+        for p in self.players:
+            if p.alive:
+                p.update(dt)
 
         for e in self.enemies:
-            e.start_turn()
+            if e.is_alive():
+                e.update(dt, self.players)
 
-        player.start_battle()
+        # check win/lose
+        if all(not e.is_alive() for e in self.enemies):
+            self.over = True
+            self.victory = True
+        elif all(not p.alive for p in self.players):
+            self.over = True
+            self.victory = False
 
-    def get_alive_enemies(self):
-        return [e for e in self.enemies if e.is_alive()]
+    # ── player actions ───────────────────────────────────────
+    def play_card(self, player_idx: int, card_idx: int, enemy_idx: int = 0):
+        if self.over or self.fuse_mode:
+            return False
+        p = self.players[player_idx]
+        alive_enemies = [e for e in self.enemies if e.is_alive()]
+        if not alive_enemies:
+            return False
+        target_idx = self.enemies.index(alive_enemies[min(enemy_idx, len(alive_enemies) - 1)])
+        return p.play_card(card_idx, self, target_idx)
 
-    def play_card(self, card_index, enemy_index=0):
-        if self.turn != self.PLAYER_TURN:
+    def damage_enemy(self, idx: int, amount: int):
+        if 0 <= idx < len(self.enemies):
+            self.enemies[idx].take_damage(amount)
+
+    # ── fuse mode ────────────────────────────────────────────
+    def enter_fuse(self):
+        self.fuse_mode = True
+        self.fuse_slot = [None, None]
+
+    def select_fuse(self, player_idx, card_idx):
+        from cards import try_fuse
+        p = self.players[player_idx]
+        if card_idx >= len(p.hand):
             return
-        enemies = self.get_alive_enemies()
-        target = enemies[enemy_index] if enemies else None
-        success = self.player.play_card(card_index, target)
-        if success:
-            self._check_enemies()
+        # fill first empty slot
+        if self.fuse_slot[0] is None:
+            self.fuse_slot[0] = (player_idx, card_idx)
+        elif self.fuse_slot[1] is None:
+            self.fuse_slot[1] = (player_idx, card_idx)
+            self._attempt_fuse()
 
-    def end_player_turn(self):
-        if self.turn != self.PLAYER_TURN:
-            return
-        self.player.end_turn()
-        self.turn = self.ENEMY_TURN
-        self._run_enemy_turn()
+    def _attempt_fuse(self):
+        from cards import try_fuse
+        (pi0, ci0), (pi1, ci1) = self.fuse_slot
+        p0, p1 = self.players[pi0], self.players[pi1]
 
-    def _run_enemy_turn(self):
-        for e in self.get_alive_enemies():
-            e.execute_intent(self.player)
-            if not self.player.is_alive():
-                self.turn = self.DEFEAT
-                return
-        for e in self.get_alive_enemies():
-            e.start_turn()
-        self.player.start_turn()
-        self.turn_number += 1
-        self.turn = self.PLAYER_TURN
+        # adjust index if same player and first card removed
+        card_a = p0.hand[ci0]
+        card_b = p1.hand[ci1]
 
-    def _check_enemies(self):
-        if not self.get_alive_enemies():
-            self.turn = self.VICTORY
+        result = try_fuse(card_a, card_b)
+        if result:
+            # remove both cards (careful with same-player same-hand)
+            cards_to_remove = [(pi0, ci0), (pi1, ci1)]
+            # sort descending by idx to avoid index shift
+            cards_to_remove.sort(key=lambda x: (x[0], x[1]), reverse=True)
+            for pi, ci in cards_to_remove:
+                self.players[pi].hand.pop(ci)
+            # give fused card to p0
+            p0.hand.append(result)
+        self.fuse_mode = False
+        self.fuse_slot = [None, None]
 
-    def is_over(self):
-        return self.turn in (self.VICTORY, self.DEFEAT)
+    def cancel_fuse(self):
+        self.fuse_mode = False
+        self.fuse_slot = [None, None]
 
+    # ── rewards ──────────────────────────────────────────────
     def gold_reward(self):
-        return sum(e.max_hp // 3 for e in self.enemies)
+        return sum(e.max_hp // 4 for e in self.enemies)
