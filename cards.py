@@ -87,21 +87,21 @@ class Heal(CardDef):
     def __init__(self):
         super().__init__("치유", 2, "두 플레이어\nHP 15 회복", "support", "common")
     def use(self, owner, battle, target_idx=0):
-        for p in battle.players:
+        for p in [battle.player]:
             p.heal(15)
 
 class BattleCry(CardDef):
     def __init__(self):
         super().__init__("함성", 1, "두 플레이어\n힘 +2", "support", "uncommon")
     def use(self, owner, battle, target_idx=0):
-        for p in battle.players:
+        for p in [battle.player]:
             p.strength += 2
 
 class DrawTwo(CardDef):
     def __init__(self):
         super().__init__("집중", 1, "두 플레이어\n카드 2장 드로우", "support", "common")
     def use(self, owner, battle, target_idx=0):
-        for p in battle.players:
+        for p in [battle.player]:
             p.draw_one()
             p.draw_one()
 
@@ -152,7 +152,7 @@ class WarCry(CardDef):
     def __init__(self):
         super().__init__("전투 함성", 2, "힘 +4 (둘다)\n카드 2장 드로우", "support", "fused")
     def use(self, owner, battle, target_idx=0):
-        for p in battle.players:
+        for p in [battle.player]:
             p.strength += 4
             p.draw_one()
             p.draw_one()
@@ -171,7 +171,7 @@ RECIPES: dict[frozenset, type] = {
     frozenset(["일격",    "점화"]):       BlazingSlash,
     frozenset(["일격",    "방어"]):       GuardedStrike,
     frozenset(["철벽",    "치유"]):       SoulBarrier,
-    frozenset(["함성",    "집중"]):       WarCry,
+    frozenset(["집중",    "집중"]):       WarCry,
     frozenset(["강타",    "회오리"]):     OmegaStrike,
     frozenset(["일격",    "일격"]):       HeavySlash,
     frozenset(["방어",    "방어"]):       IronWall,
@@ -195,8 +195,7 @@ POWER_POOL   = [Inflame, BerserkerRage]
 
 ALL_POOL = ATTACK_POOL + GUARD_POOL + SUPPORT_POOL + POWER_POOL
 
-P1_STARTER = [Strike, Strike, Strike, Guard, DrawTwo]
-P2_STARTER = [Guard, Guard, IronWall, Heal, Parry]
+SOLO_STARTER = [Strike, Strike, Strike, Guard, Guard, DrawTwo, Parry]
 
 def random_reward(count=3):
     uncommon_rare = [c for c in ALL_POOL if c().rarity in ("uncommon", "rare")]

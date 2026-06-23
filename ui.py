@@ -4,7 +4,6 @@ from constants import TYPE_KR
 
 
 def font(size, bold=False):
-    # 한국어 지원 폰트 순서대로 시도
     for name in ["malgun gothic", "맑은 고딕", "nanum gothic", "gulim", "dotum", "arial"]:
         f = pygame.font.SysFont(name, size, bold=bold)
         if f is not None:
@@ -17,91 +16,102 @@ def draw_text(surf, text, x, y, color=WHITE, size=16, bold=False, center=False):
     for i, line in enumerate(str(text).split("\n")):
         img = f.render(line, True, color)
         bx = x - img.get_width() // 2 if center else x
-        surf.blit(img, (bx, y + i * (size + 3)))
+        surf.blit(img, (bx, y + i * (size + 4)))
 
 
 def draw_bar(surf, x, y, w, h, frac, fg, bg=DARK_GRAY, border=GRAY):
     pygame.draw.rect(surf, bg, (x, y, w, h))
-    pygame.draw.rect(surf, fg, (x, y, int(w * max(0, min(1, frac))), h))
+    pygame.draw.rect(surf, fg, (x, y, int(w * max(0.0, min(1.0, frac))), h))
     pygame.draw.rect(surf, border, (x, y, w, h), 2)
 
 
-def draw_card(surf, card, x, y, w=105, h=145,
-              selected=False, fuse_sel=False, affordable=True, hotkey=""):
-    alpha_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-    body_col = (55, 50, 75) if affordable else (35, 35, 50)
-    pygame.draw.rect(alpha_surf, (*body_col, 220), (0, 0, w, h), border_radius=9)
-    surf.blit(alpha_surf, (x, y))
+def draw_card(surf, card, x, y, w=105, h=145, selected=False, affordable=True, hotkey=""):
+    body = (55, 50, 75) if affordable else (30, 30, 48)
+    pygame.draw.rect(surf, body, (x, y, w, h), border_radius=9)
+    border = YELLOW if selected else TYPE_COLOR.get(card.card_type, WHITE)
+    bw = 3 if selected else 2
+    pygame.draw.rect(surf, border, (x, y, w, h), bw, border_radius=9)
 
-    border_col = YELLOW if selected else (PINK if fuse_sel else TYPE_COLOR.get(card.card_type, WHITE))
-    bw = 3 if (selected or fuse_sel) else 2
-    pygame.draw.rect(surf, border_col, (x, y, w, h), bw, border_radius=9)
-
-    # cost bubble
+    # 코스트
     bc = BLUE if affordable else GRAY
     pygame.draw.circle(surf, bc, (x + 16, y + 16), 13)
     draw_text(surf, str(card.cost), x + 16, y + 8, WHITE, 14, bold=True, center=True)
 
-    # name
+    # 카드 이름
     nc = RARITY_COLOR.get(card.rarity, WHITE)
-    draw_text(surf, card.name, x + w // 2, y + 32, nc, 12, bold=True, center=True)
+    draw_text(surf, card.name, x + w//2, y + 32, nc, 12, bold=True, center=True)
 
-    pygame.draw.line(surf, GRAY, (x + 6, y + 50), (x + w - 6, y + 50), 1)
+    pygame.draw.line(surf, GRAY, (x+6, y+50), (x+w-6, y+50), 1)
 
+    # 타입
     tc = TYPE_COLOR.get(card.card_type, WHITE)
-    draw_text(surf, TYPE_KR.get(card.card_type, card.card_type), x + w // 2, y + 54, tc, 10, center=True)
+    draw_text(surf, TYPE_KR.get(card.card_type, card.card_type), x+w//2, y+54, tc, 10, center=True)
 
-    draw_text(surf, card.description, x + w // 2, y + 70, WHITE, 11, center=True)
+    # 설명
+    draw_text(surf, card.description, x+w//2, y+70, WHITE, 11, center=True)
 
     if hotkey:
-        draw_text(surf, hotkey, x + 4, y + h - 18, GRAY, 11)
+        draw_text(surf, hotkey, x+4, y+h-18, GRAY, 11)
 
 
-def draw_enemy(surf, enemy, x, y, w=90, h=110):
+def draw_player_panel(surf, player, px, py, pw, ph):
+    # 배경
+    panel = pygame.Surface((pw, ph), pygame.SRCALPHA)
+    pygame.draw.rect(panel, (25, 22, 45, 210), (0, 0, pw, ph), border_radius=10)
+    surf.blit(panel, (px, py))
+    pygame.draw.rect(surf, TEAL, (px, py, pw, ph), 2, border_radius=10)
+
+    draw_text(surf, "영웅", px+10, py+7, TEAL, 15, bold=True)
+
+    # HP 바
+    draw_bar(surf, px+8, py+30, pw-16, 18, player.hp/player.max_hp, GREEN)
+    draw_text(surf, f"HP  {player.hp} / {player.max_hp}", px+pw//2, py+31, WHITE, 11, center=True)
+
+    # 에너지 바
+    draw_bar(surf, px+8, py+54, pw-16, 12, player.energy_frac(), BLUE)
+    draw_text(surf, f"에너지  {player.energy} / {player.max_energy}", px+pw//2, py+55, WHITE, 10, center=True)
+
+    # 방어막 / 힘
+    draw_text(surf, f"방어막   {player.shield}", px+10, py+74, BLUE, 13)
+    draw_text(surf, f"힘         {player.strength}", px+10, py+94, RED, 13)
+    draw_text(surf, f"골드       {player.gold}", px+10, py+114, GOLD, 13)
+
+    # 드로우 정보
+    draw_text(surf, f"덱 {len(player.draw_pile)}장  /  버림 {len(player.discard_pile)}장",
+              px+10, py+138, GRAY, 11)
+
+    # 에너지 재생 힌트
+    draw_text(surf, "에너지는 자동 충전됩니다", px+10, py+ph-22, GRAY, 10)
+
+
+def draw_enemy_right(surf, enemy, x, y, selected=False):
     if not enemy.is_alive():
         return
-    col = (150, 55, 55)
-    pygame.draw.ellipse(surf, col, (x, y + 20, w, h - 20))
-    pygame.draw.ellipse(surf, WHITE, (x, y + 20, w, h - 20), 2)
 
-    # name
-    draw_text(surf, enemy.name, x + w // 2, y, WHITE, 13, bold=True, center=True)
+    w, h = 100, 120
 
-    # hp bar
-    draw_bar(surf, x, y + 14, w, 14, enemy.hp / enemy.max_hp, RED)
-    draw_text(surf, f"{enemy.hp}/{enemy.max_hp}", x + w // 2, y + 15, WHITE, 11, center=True)
+    # 선택 표시
+    if selected:
+        pygame.draw.rect(surf, YELLOW, (x-14, y-34, w+28, h+70), 2, border_radius=12)
 
-    # burn
+    # 몸통
+    pygame.draw.ellipse(surf, (160, 50, 50), (x, y+20, w, h-20))
+    pygame.draw.ellipse(surf, WHITE, (x, y+20, w, h-20), 2)
+
+    # 이름
+    draw_text(surf, enemy.name, x+w//2, y-22, WHITE, 14, bold=True, center=True)
+
+    # HP 바
+    draw_bar(surf, x, y-6, w, 16, enemy.hp/enemy.max_hp, RED)
+    draw_text(surf, f"{enemy.hp}/{enemy.max_hp}", x+w//2, y-5, WHITE, 11, center=True)
+
+    # 화상
     if enemy.burn > 0:
-        draw_text(surf, f"🔥{enemy.burn}", x + w + 4, y + 14, ORANGE, 13)
+        draw_text(surf, f"화상 {enemy.burn}", x+w+6, y+20, ORANGE, 12)
 
-    # warn bar (countdown to action)
-    warn_col = ORANGE if enemy.warn_frac() > 0.75 else YELLOW
-    draw_bar(surf, x, y + h + 4, w, 10, enemy.warn_frac(), warn_col, bg=(30, 30, 40))
+    # 행동 카운트다운 바 (주황 = 곧 공격)
+    warn_col = RED if enemy.warn_frac() > 0.80 else (ORANGE if enemy.warn_frac() > 0.5 else YELLOW)
+    draw_bar(surf, x, y+h+6, w, 12, enemy.warn_frac(), warn_col, bg=(30, 30, 40))
 
-    # intent
-    draw_text(surf, enemy.intent_label(), x + w // 2, y + h + 18, ORANGE, 12, center=True)
-
-
-def draw_player_panel(surf, player, px, py, pw, ph, label, controls_hint):
-    # panel bg
-    panel = pygame.Surface((pw, ph), pygame.SRCALPHA)
-    pygame.draw.rect(panel, (25, 22, 45, 200), (0, 0, pw, ph), border_radius=10)
-    surf.blit(panel, (px, py))
-    pygame.draw.rect(surf, TEAL if "P1" in label else PINK, (px, py, pw, ph), 2, border_radius=10)
-
-    draw_text(surf, label, px + 8, py + 6, TEAL if "P1" in label else PINK, 14, bold=True)
-
-    # hp bar
-    draw_bar(surf, px + 8, py + 26, pw - 16, 16, player.hp / player.max_hp, GREEN)
-    draw_text(surf, f"HP {player.hp}/{player.max_hp}", px + pw // 2, py + 27, WHITE, 11, center=True)
-
-    # energy bar
-    draw_bar(surf, px + 8, py + 46, pw - 16, 10, player.energy_frac(), BLUE)
-    draw_text(surf, f"⚡ {player.energy}/{player.max_energy}", px + 8, py + 48, WHITE, 10)
-
-    # shield / strength
-    draw_text(surf, f"🛡 {player.shield}  💪 {player.strength}", px + 8, py + 62, WHITE, 12)
-
-    # controls hint
-    draw_text(surf, controls_hint, px + 8, py + ph - 20, GRAY, 10)
+    # 예고 텍스트
+    draw_text(surf, enemy.intent_label(), x+w//2, y+h+22, ORANGE, 13, center=True)
