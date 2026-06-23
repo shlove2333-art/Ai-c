@@ -1,5 +1,6 @@
 import pygame
 from constants import *
+from constants import TYPE_KR
 
 
 def font(size, bold=False):
@@ -43,7 +44,7 @@ def draw_card(surf, card, x, y, w=105, h=145,
     pygame.draw.line(surf, GRAY, (x + 6, y + 50), (x + w - 6, y + 50), 1)
 
     tc = TYPE_COLOR.get(card.card_type, WHITE)
-    draw_text(surf, card.card_type.upper(), x + w // 2, y + 54, tc, 10, center=True)
+    draw_text(surf, TYPE_KR.get(card.card_type, card.card_type), x + w // 2, y + 54, tc, 10, center=True)
 
     draw_text(surf, card.description, x + w // 2, y + 70, WHITE, 11, center=True)
 

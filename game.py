@@ -36,8 +36,8 @@ class GameApp:
     def _new_game(self):
         self.floor = 0
         self.players = [
-            Player(P1_STARTER, name="Warrior"),
-            Player(P2_STARTER, name="Guardian"),
+            Player(P1_STARTER, name="전사"),
+            Player(P2_STARTER, name="수호자"),
         ]
         self._next_battle()
 
@@ -232,9 +232,9 @@ class GameApp:
 
         # Player panels
         draw_player_panel(self.screen, self.players[0], 8, 50, 200, 190,
-                          "P1 Warrior", "1 2 3 4 5 = 카드 사용")
+                          "P1 전사", "1 2 3 4 5 = 카드 사용")
         draw_player_panel(self.screen, self.players[1], W - 208, 50, 200, 190,
-                          "P2 Guardian", "7 8 9 0 - = 카드 사용")
+                          "P2 수호자", "7 8 9 0 - = 카드 사용")
 
         # Enemies
         alive = [e for e in b.enemies if e.is_alive()]
@@ -266,7 +266,7 @@ class GameApp:
 
     def _draw_reward(self):
         draw_text(self.screen, "전투 승리! 카드를 선택하세요", W // 2, 80, GOLD, 30, bold=True, center=True)
-        draw_text(self.screen, "공격/파워 카드 → P1(Warrior)  |  방어/서포트 → P2(Guardian)",
+        draw_text(self.screen, "공격/파워 카드 → P1(전사)  |  방어/서포트 → P2(수호자)",
                   W // 2, 128, GRAY, 14, center=True)
 
         for i, card in enumerate(self.reward_cards):
@@ -282,7 +282,7 @@ class GameApp:
         draw_text(self.screen, "⚗ 카드 대장간", W // 2, 14, PINK, 26, bold=True, center=True)
         draw_text(self.screen, "두 카드를 클릭하면 합성 시도! (레시피가 있으면 새 카드 획득)",
                   W // 2, 48, GRAY, 13, center=True)
-        draw_text(self.screen, "합성 레시피 예시: Strike+Ignite=BlazingSlash  Guard+Guard=IronWall",
+        draw_text(self.screen, "레시피 예시: 일격+점화=화염일격  방어+방어=철벽  강타+회오리=오메가일격",
                   W // 2, 66, GRAY, 12, center=True)
 
         # Show both decks

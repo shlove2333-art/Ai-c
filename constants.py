@@ -23,6 +23,13 @@ TYPE_COLOR = {
     "power":   PURPLE,
 }
 
+TYPE_KR = {
+    "attack":  "공격",
+    "guard":   "방어",
+    "support": "지원",
+    "power":   "강화",
+}
+
 RARITY_COLOR = {
     "common":   WHITE,
     "uncommon": TEAL,

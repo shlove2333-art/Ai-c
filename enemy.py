@@ -54,18 +54,18 @@ class Enemy:
 
     def intent_label(self):
         if self.intent == "attack":
-            return f"⚔ Attack {self.intent_value}"
+            return f"⚔ 공격 {self.intent_value}"
         if self.intent == "buff":
-            return "↑ Buff"
+            return "↑ 강화 중"
         if self.intent == "heal":
-            return f"♥ Heal {self.intent_value}"
+            return f"♥ 회복 {self.intent_value}"
         return "?"
 
 
 # ── Concrete enemies ─────────────────────────────────────────
 class Slime(Enemy):
     def __init__(self):
-        super().__init__("Slime", random.randint(18, 26))
+        super().__init__("슬라임", random.randint(18, 26))
     def _decide(self):
         self.intent = "attack"
         self.intent_value = random.randint(6, 10)
@@ -79,7 +79,7 @@ class Slime(Enemy):
 
 class Cultist(Enemy):
     def __init__(self):
-        super().__init__("Cultist", random.randint(50, 60))
+        super().__init__("광신도", random.randint(50, 60))
         self._turn = 0
     def _decide(self):
         if self._turn == 0:
@@ -105,7 +105,7 @@ class Cultist(Enemy):
 
 class Goblin(Enemy):
     def __init__(self):
-        super().__init__("Goblin", random.randint(14, 20), strength=1)
+        super().__init__("고블린", random.randint(14, 20), strength=1)
     def _decide(self):
         if random.random() < 0.7:
             self.intent = "attack"
@@ -129,7 +129,7 @@ class Goblin(Enemy):
 
 class OrcWarrior(Enemy):
     def __init__(self):
-        super().__init__("Orc", random.randint(55, 70), strength=2)
+        super().__init__("오크 전사", random.randint(55, 70), strength=2)
     def _decide(self):
         self.intent = "attack"
         self.intent_value = random.randint(12, 18)
@@ -145,7 +145,7 @@ class OrcWarrior(Enemy):
 # ── Bosses ───────────────────────────────────────────────────
 class SlimeBoss(Enemy):
     def __init__(self):
-        super().__init__("Slime King", 180, strength=2)
+        super().__init__("슬라임 왕", 180, strength=2)
         self._phase = 0
     def _decide(self):
         pattern = ["attack", "attack", "buff", "attack"]
@@ -170,7 +170,7 @@ class SlimeBoss(Enemy):
 
 class DragonLord(Enemy):
     def __init__(self):
-        super().__init__("Dragon Lord", 280, strength=4)
+        super().__init__("드래곤 군주", 280, strength=4)
         self._phase = 0
     def _decide(self):
         pattern = ["attack", "attack", "buff", "attack", "heal"]
