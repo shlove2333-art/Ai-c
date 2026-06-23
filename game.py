@@ -12,7 +12,6 @@ P1_KEYS    = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5]
 P2_KEYS    = [pygame.K_7, pygame.K_8, pygame.K_9, pygame.K_0, pygame.K_MINUS]
 P1_LABELS  = ["1", "2", "3", "4", "5"]
 P2_LABELS  = ["7", "8", "9", "0", "-"]
-FUSE_KEY   = pygame.K_f   # toggle fuse mode
 CANCEL_KEY = pygame.K_ESCAPE
 
 
@@ -105,41 +104,14 @@ class GameApp:
             return
 
         if event.type == pygame.KEYDOWN:
-            # Fuse toggle
-            if event.key == FUSE_KEY:
-                if b.fuse_mode:
-                    b.cancel_fuse()
-                else:
-                    b.enter_fuse()
-                return
-            if event.key == CANCEL_KEY:
-                b.cancel_fuse()
-                return
-
-            if b.fuse_mode:
-                # P1 card selection for fuse
-                for i, k in enumerate(P1_KEYS):
-                    if event.key == k:
-                        b.select_fuse(0, i)
-                        return
-                for i, k in enumerate(P2_KEYS):
-                    if event.key == k:
-                        b.select_fuse(1, i)
-                        return
-            else:
-                # Normal play
-                for i, k in enumerate(P1_KEYS):
-                    if event.key == k:
-                        alive = [e for e in b.enemies if e.is_alive()]
-                        t = 0
-                        b.play_card(0, i, t)
-                        return
-                for i, k in enumerate(P2_KEYS):
-                    if event.key == k:
-                        alive = [e for e in b.enemies if e.is_alive()]
-                        t = 0
-                        b.play_card(1, i, t)
-                        return
+            for i, k in enumerate(P1_KEYS):
+                if event.key == k:
+                    b.play_card(0, i, 0)
+                    return
+            for i, k in enumerate(P2_KEYS):
+                if event.key == k:
+                    b.play_card(1, i, 0)
+                    return
 
     def _reward_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -255,8 +227,8 @@ class GameApp:
 
         # Header
         draw_text(self.screen, f"Floor {self.floor} / 10", W // 2, 8, YELLOW, 16, bold=True, center=True)
-        fuse_hint = "  [F] 합성 모드" if not b.fuse_mode else "  ⚗ 합성 모드 — 두 카드 선택 [ESC 취소]"
-        draw_text(self.screen, fuse_hint, W // 2, 26, PINK if b.fuse_mode else GRAY, 13, center=True)
+        draw_text(self.screen, "P1: 1-5  |  P2: 7-0  |  전투 후 대장간에서 카드 합성",
+                  W // 2, 26, GRAY, 13, center=True)
 
         # Player panels
         draw_player_panel(self.screen, self.players[0], 8, 50, 200, 190,
@@ -276,10 +248,8 @@ class GameApp:
         for i, card in enumerate(p1.hand):
             cx = 8 + i * 112
             cy = H - 155
-            fuse_sel = b.fuse_mode and b.fuse_slot[0] == (0, i) or b.fuse_slot[1] == (0, i)
             draw_card(self.screen, card, cx, cy,
                       affordable=p1.energy >= card.cost,
-                      fuse_sel=fuse_sel,
                       hotkey=P1_LABELS[i] if i < len(P1_LABELS) else "")
 
         # Cards — P2 (bottom right)
@@ -287,10 +257,8 @@ class GameApp:
         for i, card in enumerate(p2.hand):
             cx = W - 8 - (len(p2.hand) - i) * 112
             cy = H - 155
-            fuse_sel = b.fuse_mode and (b.fuse_slot[0] == (1, i) or b.fuse_slot[1] == (1, i))
             draw_card(self.screen, card, cx, cy,
                       affordable=p2.energy >= card.cost,
-                      fuse_sel=fuse_sel,
                       hotkey=P2_LABELS[i] if i < len(P2_LABELS) else "")
 
         # Gold
