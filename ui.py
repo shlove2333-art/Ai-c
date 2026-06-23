@@ -4,7 +4,12 @@ from constants import TYPE_KR
 
 
 def font(size, bold=False):
-    return pygame.font.SysFont("Arial", size, bold=bold)
+    # 한국어 지원 폰트 순서대로 시도
+    for name in ["malgun gothic", "맑은 고딕", "nanum gothic", "gulim", "dotum", "arial"]:
+        f = pygame.font.SysFont(name, size, bold=bold)
+        if f is not None:
+            return f
+    return pygame.font.SysFont(None, size, bold=bold)
 
 
 def draw_text(surf, text, x, y, color=WHITE, size=16, bold=False, center=False):
